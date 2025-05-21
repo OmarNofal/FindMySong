@@ -17,13 +17,15 @@ def _generate_spectrogram(windows: list[np.ndarray]):
     return spectrogram.T
 
 def _plot_and_save_spectrogram(file_name: str, spectrogram: np.ndarray, window_size, hop_size, rate):
-    ime_axis = np.arange(spectrogram.shape[1]) * hop_size / rate
+    time_axis = np.arange(spectrogram.shape[1]) * hop_size / rate
     freq_axis = np.fft.rfftfreq(window_size, d=1.0/rate)
 
+    extent = [time_axis[0], time_axis[-1], freq_axis[0], freq_axis[-1]]
     plt.figure(figsize=(10, 6))
-    plt.imshow(10 * np.log10(spectrogram + 1e-9),
+    plt.imshow(spectrogram,
                 aspect='auto',
                 origin='lower',
+                extent=extent,
                 cmap='inferno')
     
     plt.xlabel('Time Frame')

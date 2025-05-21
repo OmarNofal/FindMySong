@@ -32,7 +32,7 @@ class AppDatabase:
             """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS fingerprints (
-                    hash BIGINT NOT NULL,
+                    hash INT NOT NULL,
                     time_offset_msec INT NOT NULL,
                     song_id INTEGER REFERENCES songs(id)
                 );
@@ -96,6 +96,15 @@ class AppDatabase:
                 result[6]
             )
             return song
+        
+    def get_number_of_songs(self) -> int:
+        with self.conn.cursor() as cur:
+            query = """
+                SELECT COUNT(*)
+                FROM songs;
+            """
+            cur.execute(query)
+            return cur.fetchone()[0]
 
     def close(self):
         self.conn.close()

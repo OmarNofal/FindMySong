@@ -6,9 +6,11 @@ import threading
 import queue
 import signal
 
+from config.constants import DEFAULT_SAMPLE_RATE
+
 # === Config ===
-SAMPLE_RATE = 44100
-CHUNK_DURATION = 5
+SAMPLE_RATE = DEFAULT_SAMPLE_RATE
+CHUNK_DURATION = 1
 BLOCK_SIZE = int(SAMPLE_RATE * CHUNK_DURATION)
 CHANNELS = 1
 SERVER_URI = 'ws://localhost:8000/identify_song'
@@ -33,7 +35,8 @@ def start_audio_stream():
                             blocksize=BLOCK_SIZE,
                             channels=CHANNELS,
                             dtype='float32',
-                            device=8):
+                            device=8
+                            ):
             print("[Audio] Recording started...")
             stop_event.wait()
         print("[Audio] Recording stopped.")
@@ -43,6 +46,8 @@ async def stream_to_server():
     print("[WebSocket] Connecting...")
     async with websockets.connect(SERVER_URI) as ws:
         print("[WebSocket] Connected.")
+        await ws.send(str(SAMPLE_RATE))
+        await ws.send('float32')
         while not stop_event.is_set():
             try:
                 chunk = await asyncio.get_event_loop().run_in_executor(None, audio_queue.get)

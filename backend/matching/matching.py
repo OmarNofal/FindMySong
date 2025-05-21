@@ -1,5 +1,6 @@
-
+import pprint
 import numpy as np
+from config.constants import HOP_SIZE, WINDOW_SIZE
 from database.db import AppDatabase
 from fingerprint.fingerprinting import generate_fingerprints
 from preprocessing.audio_preprocessing import preprocess_audio_file, PreprocessedAudio
@@ -14,8 +15,8 @@ def find_matches_of_file(db: AppDatabase, audio_file_path: str, top_n: int = 5):
 
 
 def get_audio_matches(db: AppDatabase, audio: PreprocessedAudio, top_n: int = 5):
-    
-    fingerprints = generate_fingerprints(audio, 2048, 512)
+
+    fingerprints = generate_fingerprints(audio, WINDOW_SIZE, HOP_SIZE)
     hash_time_pairs = [(f[0], f[1]) for f in fingerprints]  # (hash, time_offset)
 
     # Find all matches in the database for the query hashes
@@ -26,7 +27,7 @@ def get_audio_matches(db: AppDatabase, audio: PreprocessedAudio, top_n: int = 5)
     # Build a map from hash to query time
     query_hash_time_map = dict(hash_time_pairs)
 
-    BIN_SIZE = 10 # milliseconds
+    BIN_SIZE = 3 # milliseconds
 
     for h, db_time, song_id in matches:
         query_time = query_hash_time_map.get(h)
@@ -40,6 +41,7 @@ def get_audio_matches(db: AppDatabase, audio: PreprocessedAudio, top_n: int = 5)
             offset_votes[song_id] = Counter()
         offset_votes[song_id][binned_delta] += 1
 
+
     # Score by the most common delta_t (i.e., peak of the voting histogram)
     scores = {
         song_id: max(votes.values())
@@ -48,11 +50,6 @@ def get_audio_matches(db: AppDatabase, audio: PreprocessedAudio, top_n: int = 5)
 
     # Sort by score descending
     sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-
-    # for song_id, score in sorted_scores[:top_n]:
-    #     song = db.get_song(song_id)
-    #     song_name = song.title
-    #     print(f"{song_name}\t\t\t\t\tScore: {score}")
 
     return sorted_scores
 

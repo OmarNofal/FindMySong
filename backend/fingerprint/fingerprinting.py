@@ -1,18 +1,19 @@
 import numpy as np
 import scipy.ndimage
+from config.constants import FANOUT, HOP_SIZE, NEIGHBORHOOD_SIZE, WINDOW_SIZE
 from preprocessing.audio_preprocessing import PreprocessedAudio, preprocess_audio_file
 import matplotlib.pyplot as plt
 from .spectrogram import _generate_spectrogram, _plot_and_save_spectrogram 
 import scipy
 from fingerprint.hashing import hash_fingerprints
 
-def generate_fingerprints(audio: PreprocessedAudio, window_size: int = 2048, hop_size: int = 512):
+def generate_fingerprints(audio: PreprocessedAudio, window_size: int = WINDOW_SIZE, hop_size: int = HOP_SIZE):
     windows = _split_into_windows(audio, window_size, hop_size, apply_hanning=True)
     spectrogram = _generate_spectrogram(windows)
-    spectrogram = 10 * np.log10(spectrogram, where=(spectrogram != 0))
+    spectrogram = 10 * np.log10(spectrogram + 1e-10)
     ##_plot_and_save_spectrogram('my_spec.png', spectrogram, window_size, hop_size, audio.rate)
     peaks = _generate_peaks(spectrogram)
-    fingerprints = _generate_peaks_pairs(peaks, window_size, hop_size, audio.rate, fanout=5)
+    fingerprints = _generate_peaks_pairs(peaks, window_size, hop_size, audio.rate, fanout=FANOUT)
     return hash_fingerprints(fingerprints)
 
 
@@ -28,22 +29,11 @@ def _split_into_windows(audio: PreprocessedAudio, window_size: int, hop_size: in
     
     return windows * hanning_fn  # apply windowing in a single line
 
-    # hanning_fn = np.hanning(window_size)
-    # num_windows = (len(audio.signal) - window_size) // hop_size
-    # windows = list()
-
-    # for i in range(num_windows):
-    #     start_index = hop_size * i
-    #     end_index = start_index + window_size
-    #     window = audio.signal[start_index : end_index] * hanning_fn
-    #     windows.append(window)
-
-    # return windows
-
-def _generate_peaks(spectrogram: np.ndarray):
+def _generate_peaks(spectrogram: np.ndarray, neighborhood_size: int = NEIGHBORHOOD_SIZE):
     
-    filter_size = (20, 20)
-    sensitivity = 1.5
+    filter_size = neighborhood_size
+    sensitivity = 2
+    
     # Step 1: Local mean filter for adaptive thresholding
     local_mean = scipy.ndimage.uniform_filter(spectrogram, size=filter_size)
     threshold_mask = spectrogram > (local_mean * sensitivity)
@@ -76,24 +66,29 @@ def _generate_peaks(spectrogram: np.ndarray):
     pruned_peaks.sort()
     return pruned_peaks
 
-def _generate_peaks_pairs(peaks, window_size, hop_size, rate, fanout = 10):
+def _generate_peaks_pairs(peaks, window_size, hop_size, rate, fanout = FANOUT):
     """
     The peaks must be sorted
     """
-
+    if len(peaks) == 0:
+        return list()
+    
     time_idx, freq_idx = zip(*peaks)
+    
+    min_time_delta_ms = 0
+    max_time_delta_ms = 1500
 
-    min_time_delta = 0
-    max_time_delta = 100
+    min_frame_delta = (min_time_delta_ms * rate) / ( hop_size * 1000 )
+    max_frame_delta = (max_time_delta_ms * rate) / ( hop_size * 1000 ) 
 
-    # max_freq_delta = 250 # experiment with this number
+    max_freq_delta = 300 # experiment with this number
 
     fingerprints = list()
 
     for i, p in enumerate(peaks):
 
         a_t_frame, a_freq = p
-        a_t_msec = ((a_t_frame * hop_size) / rate) * 1000
+        a_t_msec = int(((a_t_frame * hop_size) / rate) * 1000)
 
         for j in range(1, fanout + 1):
             if i + j >= len(peaks):
@@ -102,7 +97,7 @@ def _generate_peaks_pairs(peaks, window_size, hop_size, rate, fanout = 10):
             b_t_frame, b_freq = peaks[i + j]
             delta_t_frame = b_t_frame - a_t_frame
 
-            if delta_t_frame < min_time_delta or delta_t_frame > max_time_delta:
+            if delta_t_frame < min_frame_delta or delta_t_frame > max_frame_delta:
                 continue
             # elif abs(b_freq - a_freq) > max_freq_delta:
             #     continue
