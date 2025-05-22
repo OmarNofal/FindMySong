@@ -1,5 +1,6 @@
 package com.omar.findmysong.ui.screen
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.pm.ActivityInfo
@@ -55,6 +56,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -87,6 +89,8 @@ import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.omar.findmysong.model.SongInfo
+import com.omar.findmysong.ui.permission.rememberMicrophoneRationaleDialog
+import com.omar.findmysong.ui.permission.rememberPermissionHandler
 import com.omar.findmysong.ui.theme.ManropeFontFamily
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -120,8 +124,16 @@ fun HomeScreen(
     stop: () -> Unit
 ) {
 
+    val rationaleDialog = rememberMicrophoneRationaleDialog()
+    val micPermissionHandler = rememberPermissionHandler(
+        Manifest.permission.RECORD_AUDIO,
+        onAccepted = start,
+        onDeclined = {},
+        onShowRationale = {  rationaleDialog.show() }
+    )
+
     Box(
-        modifier = Modifier.fillMaxSize()
+        modifier = modifier
     ) {
 
         TitleText(
@@ -137,7 +149,11 @@ fun HomeScreen(
             beatsFlow = beatsFlow,
             isRecording = state == HomeScreenViewModel.State.Identifying || state is HomeScreenViewModel.State.Found,
             hide = state is HomeScreenViewModel.State.Found,
-            onClick = start,
+            onClick = {
+                if (micPermissionHandler.permissionGranted)
+                    start()
+                else micPermissionHandler.askForPermission()
+            },
         )
         AnimatedVisibility(
             visible = state == HomeScreenViewModel.State.Identifying,
@@ -199,10 +215,10 @@ fun RecordButton(
         tween(400, easing = FastOutSlowInEasing)
     )
 
-    var pressScaleDown by remember { mutableStateOf(0.0f) }
+    var pressScaleDown by remember { mutableFloatStateOf(0.0f) }
 
     // Beat animation scale state
-    var beatScale by remember { mutableStateOf(1.0f) }
+    var beatScale by remember { mutableFloatStateOf(1.0f) }
 
     // Animate beat bounce
     val animatedBeatScale by animateFloatAsState(
@@ -216,11 +232,13 @@ fun RecordButton(
     // Launch beat detection listener
     LaunchedEffect(Unit) {
         beatsFlow.collect {
-            beatScale = 1.4f // Bounce up
-            delay(50)       // Optional: reset quickly
-            beatScale = 1.0f // Bounce back
+            beatScale = 1.4f
+            delay(50)
+            beatScale = 1.0f
         }
     }
+
+
 
 
     Box(
@@ -549,7 +567,6 @@ fun RipplesVisualizer(
         }
     }
 }
-
 
 
 @Composable
