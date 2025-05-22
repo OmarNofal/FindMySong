@@ -1,4 +1,3 @@
-import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.omar.findmysong.network.SongIdentificationResponseDeserializer
@@ -12,15 +11,15 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
-import okio.ByteString
+import okio.ByteString.Companion.toByteString
 import timber.log.Timber
-
+import java.nio.ByteBuffer
 
 
 const val URL = "ws://192.168.1.77:8000/identify_song"
 val client = OkHttpClient()
 
-class FindMySongService : WebSocketListener() {
+class FindMySongService(bufferSize: Int) : WebSocketListener() {
 
     private val request = Request.Builder().url(URL).build()
     private var ws: WebSocket? = null
@@ -33,13 +32,25 @@ class FindMySongService : WebSocketListener() {
     private val _state = MutableStateFlow<State>(State.Idle)
     val state = _state.asStateFlow()
 
+    private val buffer: ByteBuffer = ByteBuffer.allocateDirect(bufferSize)
+
     fun connect() {
         Timber.tag("WS").d("Trying connect")
         ws = client.newWebSocket(request, this)
     }
 
     fun sendChunk(chunk: ByteArray) {
-        ws?.send(ByteString.of(*chunk))
+        var offset = 0
+        while (offset < chunk.size) {
+            val available = buffer.remaining()
+            val toPut = minOf(available, chunk.size - offset)
+            buffer.put(chunk, offset, toPut)
+            offset += toPut
+            if (!buffer.hasRemaining()) {
+                flushBuffer()
+                buffer.clear()
+            }
+        }
     }
 
     fun stop() {
@@ -49,7 +60,6 @@ class FindMySongService : WebSocketListener() {
     }
 
     override fun onMessage(webSocket: WebSocket, text: String) {
-
         val response = gson.fromJson(text, SongIdentificationResponse::class.java)
 
         if (response is SongFoundResponse) {
@@ -57,10 +67,6 @@ class FindMySongService : WebSocketListener() {
         } else if (response is ErrorResponse) {
             _state.value = State.NotFound(response)
         }
-    }
-
-    override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
-
     }
 
     override fun onOpen(webSocket: WebSocket, response: Response) {
@@ -77,6 +83,14 @@ class FindMySongService : WebSocketListener() {
 
     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
         _state.value = State.Error(t)
+    }
+
+    fun flushBuffer() {
+        if (buffer.position() > 0) {
+            buffer.flip() // switch to read mode
+            ws?.send(buffer.toByteString())
+            buffer.clear()
+        }
     }
 
     sealed class State {

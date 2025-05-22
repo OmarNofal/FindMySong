@@ -106,10 +106,3 @@ def _generate_peaks_pairs(peaks, window_size, hop_size, rate, fanout = FANOUT):
                 fingerprints.append(fingerprint)
 
     return fingerprints
-
-                
-
-if __name__ == '__main__':
-    f = generate_fingerprints(preprocess_audio_file('audio_files/love.mp3'))
-    print(len(f))
-    print(f[-10:])

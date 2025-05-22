@@ -73,6 +73,7 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
     implementation(libs.gson)
     implementation(libs.timber)
+    implementation(files("C:\\Users\\omarw\\Downloads\\JTransforms-3.1-with-dependencies.jar"))
 
     ksp(libs.hilt.compiler)
     testImplementation(libs.junit)

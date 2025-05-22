@@ -12,14 +12,17 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -52,14 +55,21 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -79,6 +89,8 @@ import coil3.request.crossfade
 import com.omar.findmysong.model.SongInfo
 import com.omar.findmysong.ui.theme.ManropeFontFamily
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharedFlow
 
 
 @Composable
@@ -88,10 +100,12 @@ fun HomeScreen(
 ) {
 
     val state by viewModel.state.collectAsState()
+    val beatsFlow = viewModel.beatsFlow
 
     HomeScreen(
         modifier,
         state,
+        beatsFlow,
         start = viewModel::start,
         stop = viewModel::stop
     )
@@ -101,6 +115,7 @@ fun HomeScreen(
 fun HomeScreen(
     modifier: Modifier,
     state: HomeScreenViewModel.State,
+    beatsFlow: SharedFlow<Unit>,
     start: () -> Unit,
     stop: () -> Unit
 ) {
@@ -119,6 +134,7 @@ fun HomeScreen(
             modifier = Modifier
                 .align(Alignment.Center)
                 .fillMaxSize(0.40f),
+            beatsFlow = beatsFlow,
             isRecording = state == HomeScreenViewModel.State.Identifying || state is HomeScreenViewModel.State.Found,
             hide = state is HomeScreenViewModel.State.Found,
             onClick = start,
@@ -154,6 +170,7 @@ fun HomeScreen(
 @Composable
 fun RecordButton(
     modifier: Modifier,
+    beatsFlow: SharedFlow<Unit>,
     isRecording: Boolean,
     hide: Boolean,
     onClick: () -> Unit,
@@ -184,6 +201,28 @@ fun RecordButton(
 
     var pressScaleDown by remember { mutableStateOf(0.0f) }
 
+    // Beat animation scale state
+    var beatScale by remember { mutableStateOf(1.0f) }
+
+    // Animate beat bounce
+    val animatedBeatScale by animateFloatAsState(
+        targetValue = beatScale,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
+    )
+
+    // Launch beat detection listener
+    LaunchedEffect(Unit) {
+        beatsFlow.collect {
+            beatScale = 1.4f // Bounce up
+            delay(50)       // Optional: reset quickly
+            beatScale = 1.0f // Bounce back
+        }
+    }
+
+
     Box(
         modifier = modifier
             .pointerInput(Unit) {
@@ -204,11 +243,14 @@ fun RecordButton(
                 .aspectRatio(1.0f)
                 .background(Color(0xFFE70000), CircleShape)
         )
+        if (!hide)
+            RipplesVisualizer(Modifier.matchParentSize(), beatsFlow)
         AnimatedVisibility(!hide, exit = fadeOut(), enter = fadeIn()) {
             Icon(
                 modifier = Modifier
                     .graphicsLayer { rotationZ = iconRotation }
-                    .size(56.dp),
+                    .size(56.dp)
+                    .scale(animatedBeatScale),
                 imageVector = Icons.Rounded.Radar,
                 contentDescription = null,
                 tint = Color.White
@@ -441,6 +483,74 @@ fun MatchFoundScreen(
         }
     }
 }
+
+
+data class Ripple(var alpha: Float, var scale: Float)
+
+@Composable
+fun RipplesVisualizer(
+    modifier: Modifier = Modifier,
+    beats: Flow<Unit>
+) {
+    val ripples = remember { mutableStateListOf<Ripple>() }
+    var lastFrameTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
+
+    // Dummy state to trigger recomposition
+    var frameTick by remember { mutableIntStateOf(0) }
+
+    val alphaDeltaPerSecond = -0.4f
+    val scaleDeltaPerSecond = 3.4f
+
+    // Listen to beat events
+    LaunchedEffect(Unit) {
+        beats.collect {
+            ripples.add(Ripple(alpha = 0.8f, scale = 1.0f))
+        }
+    }
+
+    // Animate ripples every frame
+    LaunchedEffect(Unit) {
+        while (true) {
+            withFrameNanos { frameTimeNanos ->
+                val currentTime = frameTimeNanos / 1_000_000
+                val diffSeconds = (currentTime - lastFrameTime) / 1000f
+                lastFrameTime = currentTime
+
+                val iterator = ripples.iterator()
+                while (iterator.hasNext()) {
+                    val ripple = iterator.next()
+                    ripple.alpha += alphaDeltaPerSecond * diffSeconds
+                    ripple.scale += scaleDeltaPerSecond * diffSeconds
+                    if (ripple.alpha <= 0f) iterator.remove()
+                }
+
+                // Trigger recomposition by incrementing the state
+                frameTick++
+            }
+        }
+    }
+
+    Box(modifier, contentAlignment = Alignment.Center) {
+        Canvas(Modifier.fillMaxSize()) {
+            for (ripple in ripples) {
+                withTransform({
+                    frameTick
+                    val scalePx = with(this@Canvas) {
+                        ripple.scale.dp.toPx()
+                    }
+                    scale(scalePx)
+                }) {
+                    drawCircle(
+                        color = Color(1.0f, 0.63f, 0.63f, alpha = ripple.alpha),
+                        radius = 40f
+                    )
+                }
+            }
+        }
+    }
+}
+
+
 
 @Composable
 fun DarkStatusBarEffect() {
