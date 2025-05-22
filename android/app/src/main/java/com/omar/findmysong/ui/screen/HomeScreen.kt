@@ -47,6 +47,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -129,48 +131,59 @@ fun HomeScreen(
         Manifest.permission.RECORD_AUDIO,
         onAccepted = start,
         onDeclined = {},
-        onShowRationale = {  rationaleDialog.show() }
+        onShowRationale = { rationaleDialog.show() }
     )
 
-    Box(
-        modifier = modifier
-    ) {
 
-        TitleText(
-            Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 200.dp),
-            text = "Find songs around you..."
-        )
-        RecordButton(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .fillMaxSize(0.40f),
-            beatsFlow = beatsFlow,
-            isRecording = state == HomeScreenViewModel.State.Identifying || state is HomeScreenViewModel.State.Found,
-            hide = state is HomeScreenViewModel.State.Found,
-            onClick = {
-                if (micPermissionHandler.permissionGranted)
-                    start()
-                else micPermissionHandler.askForPermission()
-            },
-        )
-        AnimatedVisibility(
-            visible = state == HomeScreenViewModel.State.Identifying,
-            enter = fadeIn(tween(delayMillis = 100)),
-            exit = fadeOut()
-        ) {
-            RecordingScreen(
-                modifier = Modifier.fillMaxSize(),
-                onCancel = stop
+    val snackbarState = remember { SnackbarHostState() }
+
+    LaunchedEffect(state) {
+        if (state is HomeScreenViewModel.State.NotFound)
+            snackbarState.showSnackbar("No results found!")
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarState) },
+        containerColor = Color.Transparent,
+    ) { padding ->
+        Box(Modifier.fillMaxSize()) {
+
+            TitleText(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 200.dp),
+                text = "Find songs around you..."
             )
-        }
-        if (state is HomeScreenViewModel.State.Found) {
-            MatchFoundScreen(
-                modifier = Modifier.fillMaxSize(),
-                songInfo = state.songInfo,
-                onNavigateBack = stop
+            RecordButton(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxSize(0.40f),
+                beatsFlow = beatsFlow,
+                isRecording = state == HomeScreenViewModel.State.Identifying || state is HomeScreenViewModel.State.Found,
+                hide = state is HomeScreenViewModel.State.Found,
+                onClick = {
+                    if (micPermissionHandler.permissionGranted)
+                        start()
+                    else micPermissionHandler.askForPermission()
+                },
             )
+            AnimatedVisibility(
+                visible = state == HomeScreenViewModel.State.Identifying,
+                enter = fadeIn(tween(delayMillis = 100)),
+                exit = fadeOut()
+            ) {
+                RecordingScreen(
+                    modifier = Modifier.fillMaxSize(),
+                    onCancel = stop
+                )
+            }
+            if (state is HomeScreenViewModel.State.Found) {
+                MatchFoundScreen(
+                    modifier = Modifier.fillMaxSize(),
+                    songInfo = state.songInfo,
+                    onNavigateBack = stop
+                )
+            }
         }
     }
 
@@ -601,6 +614,10 @@ fun VibrateEffect(state: HomeScreenViewModel.State) {
         if (state is HomeScreenViewModel.State.Found) {
             val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
             vibrator.vibrate(VibrationEffect.createOneShot(600L, VibrationEffect.DEFAULT_AMPLITUDE))
+        } else if (state is HomeScreenViewModel.State.NotFound) {
+            val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            val pattern = longArrayOf(0, 70, 80, 70) // delay, vibrate, pause, vibrate
+            vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1)) // -1 means no repeat
         }
     }
 }
