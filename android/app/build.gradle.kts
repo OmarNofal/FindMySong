@@ -69,10 +69,12 @@ dependencies {
     implementation(libs.coil.network)
     implementation(libs.hilt.android)
     implementation(libs.retrofit)
+    implementation(libs.retrofit.gson)
     implementation(libs.compose.navigation)
     implementation(libs.hilt.navigation.compose)
     implementation(libs.gson)
     implementation(libs.timber)
+    implementation(libs.work)
     implementation(files("C:\\Users\\omarw\\Downloads\\JTransforms-3.1-with-dependencies.jar"))
 
     ksp(libs.hilt.compiler)

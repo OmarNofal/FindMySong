@@ -21,7 +21,7 @@ class BassBeatDetector(
     private val historySizeChunks = 40
     private val bassMinFreq = 20
     private val bassMaxFreq = 300
-    private val smoothing = 0.3f
+    private val smoothing = 0.6f
     private var runningAverage = 0f
 
     fun processFrame(chunk: FloatArray, time: Long): Boolean {

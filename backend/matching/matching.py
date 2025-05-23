@@ -51,7 +51,7 @@ def get_audio_matches(db: AppDatabase, audio: PreprocessedAudio, top_n: int = 5)
     # Sort by score descending
     sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
 
-    return sorted_scores
+    return sorted_scores[:top_n]
 
 
 

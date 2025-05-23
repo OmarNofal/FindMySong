@@ -3,6 +3,9 @@ package com.omar.findmysong.ui.screen
 import FindMySongService
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.WorkManager
+import com.omar.findmysong.OfflineService
+import com.omar.findmysong.di.TempDirectory
 import com.omar.findmysong.model.SongInfo
 import com.omar.findmysong.service.AudioRecordService
 import com.omar.findmysong.visualizer.BassBeatDetector
@@ -14,16 +17,21 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.io.File
 import javax.inject.Inject
 
 
 @HiltViewModel
-class HomeScreenViewModel @Inject constructor() : ViewModel() {
+class HomeScreenViewModel @Inject constructor(
+    @TempDirectory val cacheDir: File,
+    workManager: WorkManager,
+) : ViewModel() {
 
     private val audioRecord = AudioRecordService(50)
     private val beatDetector = BassBeatDetector(44100, 100)
     private val wsService = FindMySongService(44100 * 4)
     val state = MutableStateFlow<State>(State.Idle)
+    private val offlineService = OfflineService(cacheDir, workManager)
 
     private val _beatsFlow = MutableSharedFlow<Unit>()
     val beatsFlow = _beatsFlow.asSharedFlow()
@@ -51,6 +59,7 @@ class HomeScreenViewModel @Inject constructor() : ViewModel() {
         audioRecord.startRecording { it ->
             Timber.e("Read ${it.size} bytes")
             wsService.sendChunk(it)
+            offlineService.appendBuffer(it)
             val isBeat = beatDetector.processFrame(
                 BeatDetector.byteToFloatArray(it),
                 System.currentTimeMillis()
@@ -67,6 +76,7 @@ class HomeScreenViewModel @Inject constructor() : ViewModel() {
         wsService.stop()
         audioRecord.stopRecording()
         state.value = State.Idle
+        offlineService.schedule()
     }
 
     fun cancel() {

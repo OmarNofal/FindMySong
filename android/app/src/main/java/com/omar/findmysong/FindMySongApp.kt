@@ -10,6 +10,7 @@ class FindMySongApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        AppNotificationManager.init(this.applicationContext)
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         }

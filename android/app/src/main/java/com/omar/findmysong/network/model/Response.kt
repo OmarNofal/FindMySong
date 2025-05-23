@@ -2,6 +2,9 @@ package com.omar.findmysong.network.model
 
 import androidx.annotation.Keep
 import com.omar.findmysong.model.SongInfo
+import okhttp3.ResponseBody
+import retrofit2.Response
+import java.lang.Error
 
 
 @Keep
@@ -17,7 +20,6 @@ class SongFoundResponse(
     val artist: String,
     val title: String
 ) : SongIdentificationResponse(status) {
-
 
     fun toSongModel() = SongInfo(id, title, album, artist)
 }

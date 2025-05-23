@@ -1,6 +1,4 @@
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
-import com.omar.findmysong.network.SongIdentificationResponseDeserializer
+import com.omar.findmysong.network.gson
 import com.omar.findmysong.network.model.ErrorResponse
 import com.omar.findmysong.network.model.SongFoundResponse
 import com.omar.findmysong.network.model.SongIdentificationResponse
@@ -23,11 +21,6 @@ class FindMySongService(bufferSize: Int) : WebSocketListener() {
 
     private val request = Request.Builder().url(URL).build()
     private var ws: WebSocket? = null
-
-    var gson: Gson = GsonBuilder().registerTypeAdapter(
-        SongIdentificationResponse::class.java,
-        SongIdentificationResponseDeserializer()
-    ).create()
 
     private val _state = MutableStateFlow<State>(State.Idle)
     val state = _state.asStateFlow()

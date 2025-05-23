@@ -1,7 +1,8 @@
 import pprint
 from time import time
 import fastapi
-from fastapi import HTTPException, Response, WebSocket
+from fastapi import File, HTTPException, Response, UploadFile, WebSocket
+from fastapi.responses import JSONResponse
 import numpy as np
 from tinytag import TinyTag
 from config.constants import DEFAULT_SAMPLE_RATE
@@ -12,6 +13,7 @@ from model.song import Song
 from preprocessing.audio_preprocessing import PreprocessedAudio
 from matching.matching import get_audio_matches
 from starlette.websockets import WebSocketDisconnect
+from scipy.signal import resample
 
 app = fastapi.FastAPI()
 
@@ -62,6 +64,53 @@ async def identify_song(ws: WebSocket):
             await ws.send_json(res)
             await ws.close()
             break
+
+@app.post('/recognize_song_one_shot')
+async def recognize_song_one_shot(
+    file: UploadFile,
+    sample_rate: int,
+    dtype: str
+):
+    
+    contents = await file.read()
+    
+    signal = np.frombuffer(contents, dtype=dtype)
+    duration_sec = len(signal) / sample_rate
+
+    if sample_rate != DEFAULT_SAMPLE_RATE:
+        num_samples = int(duration_sec * DEFAULT_SAMPLE_RATE)
+        signal = resample(signal, num_samples)
+
+    preprocessed = PreprocessedAudio(signal, DEFAULT_SAMPLE_RATE, duration_sec)
+    result = get_audio_matches(db, preprocessed, 1)
+
+    song_id = result[0][0]
+    if song_id is None or result[0][1] < 20:
+        res = prepare_failure_result()
+        return JSONResponse(res)
+
+    song = db.get_song(song_id)
+    res = prepare_sucess_result(song)
+
+    return JSONResponse(res)
+
+
+
+@app.get('/get_albumart')
+def get_albumart(song_id: int):
+
+    song = db.get_song(song_id)
+    if song is None:
+        raise HTTPException(status_code=404, detail='Invalid song id')
+
+    song_path = song.file_path
+    tags = TinyTag.get(song_path, image=True)
+    pic = tags.images.front_cover
+
+    if pic is None:
+        raise HTTPException(status_code=404, detail='No album art')
+
+    return Response(media_type=pic.mime_type, content=pic.data)
 
 @app.get('/get_albumart')
 def get_albumart(song_id: int):
