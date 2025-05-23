@@ -4,12 +4,14 @@ import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.pm.ActivityInfo
+import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -140,8 +142,23 @@ fun HomeScreen(
 
     val snackbarState = remember { SnackbarHostState() }
 
+    val notificationsPermissionHandler =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            rememberPermissionHandler(
+                Manifest.permission.POST_NOTIFICATIONS,
+                onAccepted = {},
+                onDeclined = {},
+                onShowRationale = {}
+            )
+        } else null
+
     LaunchedEffect(Unit) {
         events.collect {
+            if (it is HomeScreenViewModel.Event.ScheduledForOfflineRecognition) {
+                if (notificationsPermissionHandler?.permissionGranted == false) {
+                    notificationsPermissionHandler.askForPermission()
+                }
+            }
             when (it) {
                 HomeScreenViewModel.Event.ScheduledForOfflineRecognition -> snackbarState.showSnackbar(
                     "We will find your song when you get back online!"
@@ -479,8 +496,9 @@ fun MatchFoundScreen(
                             Brush.verticalGradient(
                                 colors = listOf(
                                     Color.Black.copy(0.2f),
-                                    Color.Black.copy(0.7f),
-                                    Color.Black.copy(alpha = 1.0f)
+                                    Color.Black.copy(0.8f),
+                                    Color.Black.copy(0.9f),
+                                    Color.Black.copy(1.0f)
                                 )
                             )
                         )
@@ -496,9 +514,9 @@ fun MatchFoundScreen(
 
 
                 Spacer(Modifier.height(16.dp))
-                AnimatedVisibility(visible, enter = fadeIn()) {
+                AnimatedVisibility(visible, enter = fadeIn(tween(durationMillis = 400))) {
                     Text(
-                        songInfo.title, style = MaterialTheme.typography.headlineMedium,
+                        songInfo.title, style = MaterialTheme.typography.headlineLarge,
                         textAlign = TextAlign.Center,
                         fontWeight = FontWeight.Bold,
                         fontFamily = ManropeFontFamily,
@@ -508,11 +526,11 @@ fun MatchFoundScreen(
                 }
                 AnimatedVisibility(
                     visible,
-                    enter = fadeIn(tween(durationMillis = 600, delayMillis = 500))
+                    enter = fadeIn(tween(durationMillis = 600, delayMillis = 600))
                 ) {
                     Text(
                         songInfo.artist,
-                        style = MaterialTheme.typography.labelLarge,
+                        style = MaterialTheme.typography.titleMedium,
                         textAlign = TextAlign.Center,
                         fontWeight = FontWeight.Normal,
                         fontFamily = ManropeFontFamily,

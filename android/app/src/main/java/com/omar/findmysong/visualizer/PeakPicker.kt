@@ -17,7 +17,7 @@ class BassBeatDetector(
 
     private var lastBeatTime = 0L
     private val magnitudeHistory = ArrayDeque<Float>()
-    private val magnitudeThreshold = 1.2f
+    private val magnitudeThreshold = 1.1f
     private val historySizeChunks = 40
     private val bassMinFreq = 20
     private val bassMaxFreq = 300
