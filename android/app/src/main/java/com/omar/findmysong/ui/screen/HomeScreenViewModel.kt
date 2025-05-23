@@ -1,22 +1,18 @@
 package com.omar.findmysong.ui.screen
 
-import FindMySongService
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.work.WorkManager
-import com.omar.findmysong.OfflineService
 import com.omar.findmysong.di.TempDirectory
 import com.omar.findmysong.model.SongInfo
-import com.omar.findmysong.service.AudioRecordService
-import com.omar.findmysong.visualizer.BassBeatDetector
-import com.omar.findmysong.visualizer.BeatDetector
-import com.omar.findmysong.visualizer.SpectralFluxDetector
+import com.omar.findmysong.service.MusicRecognitionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import java.io.File
 import javax.inject.Inject
 
@@ -27,77 +23,90 @@ class HomeScreenViewModel @Inject constructor(
     workManager: WorkManager,
 ) : ViewModel() {
 
-    private val audioRecord = AudioRecordService(50)
-    private val beatDetector = BassBeatDetector(44100, 100)
-    private val wsService = FindMySongService(44100 * 4)
+
+    val recognitionManager = MusicRecognitionManager(
+        cacheDir, workManager, CoroutineScope(
+            Dispatchers.Default
+        )
+    )
+
     val state = MutableStateFlow<State>(State.Idle)
-    private val offlineService = OfflineService(cacheDir, workManager)
 
     private val _beatsFlow = MutableSharedFlow<Unit>()
     val beatsFlow = _beatsFlow.asSharedFlow()
 
+    private val _events = MutableSharedFlow<Event>()
+    val events = _events.asSharedFlow()
+
     init {
         viewModelScope.launch {
-            wsService.state.collect { wsState ->
-                when (wsState) {
-                    is FindMySongService.State.Found ->
-                        onSongFound(wsState.response.toSongModel())
-
-                    is FindMySongService.State.NotFound ->
-                        onSongNotFound()
-
-                    is FindMySongService.State.Error -> onSongNotFound()
-                    else -> {}
-                }
+            recognitionManager.events.collect { event ->
+                handleManagerEvent(event)
             }
+        }
+    }
+
+    private fun handleManagerEvent(event: MusicRecognitionManager.Event) {
+        when (event) {
+            is MusicRecognitionManager.Event.RecognitionStarted -> onRecognitionStarted()
+            is MusicRecognitionManager.Event.RecognitionCanceled -> onRecognitionCanceled()
+            is MusicRecognitionManager.Event.BeatDetected -> onBeatDetected()
+            is MusicRecognitionManager.Event.ScheduledForOfflineRecognition -> onScheduledForOfflineRecognition()
+            is MusicRecognitionManager.Event.SongFound -> onSongFound(event.song)
+            is MusicRecognitionManager.Event.SongNotFound -> onSongNotFound()
         }
     }
 
     fun start() {
-        state.value = State.Identifying
-        wsService.connect()
-        audioRecord.startRecording { it ->
-            Timber.e("Read ${it.size} bytes")
-            wsService.sendChunk(it)
-            offlineService.appendBuffer(it)
-            val isBeat = beatDetector.processFrame(
-                BeatDetector.byteToFloatArray(it),
-                System.currentTimeMillis()
-            )
-            if (isBeat) {
-                viewModelScope.launch {
-                    _beatsFlow.emit(Unit)
-                }
-            }
-        }
+        recognitionManager.start()
     }
 
     fun stop() {
-        wsService.stop()
-        audioRecord.stopRecording()
-        state.value = State.Idle
-        offlineService.schedule()
+        if (state.value is State.Found)
+            state.value = State.Idle
+        else
+            recognitionManager.cancel()
     }
 
-    fun cancel() {
-        state.value = State.Idle
-    }
-
-    private fun onSongFound(songInfo: SongInfo) {
-        state.value = State.Found(songInfo)
-        audioRecord.stopRecording()
+    private fun onSongFound(song: SongInfo) {
+        state.value = State.Found(song)
     }
 
     private fun onSongNotFound() {
-        state.value = State.NotFound()
-        audioRecord.stopRecording()
+        state.value = State.Idle
+        emitEvent(Event.SongNotFound)
+    }
+
+    private fun onScheduledForOfflineRecognition() {
+        state.value = State.Idle
+        emitEvent(Event.ScheduledForOfflineRecognition)
+    }
+
+    private fun onBeatDetected() {
+        viewModelScope.launch { _beatsFlow.emit(Unit) }
+    }
+
+    private fun onRecognitionCanceled() {
+        state.value = State.Idle
+    }
+
+    private fun onRecognitionStarted() {
+        state.value = State.Identifying
+    }
+
+    private fun emitEvent(event: Event) {
+        viewModelScope.launch { _events.emit(event) }
     }
 
     sealed class State {
         object Idle : State()
         object Identifying : State()
         class Found(val songInfo: SongInfo) : State()
-        class NotFound : State()
+    }
+
+    sealed class Event {
+        object SongNotFound : Event()
+        object ScheduledForOfflineRecognition : Event()
     }
 
 }

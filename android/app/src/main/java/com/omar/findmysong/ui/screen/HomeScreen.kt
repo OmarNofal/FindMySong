@@ -107,10 +107,12 @@ fun HomeScreen(
 
     val state by viewModel.state.collectAsState()
     val beatsFlow = viewModel.beatsFlow
+    val events = viewModel.events
 
     HomeScreen(
         modifier,
         state,
+        events,
         beatsFlow,
         start = viewModel::start,
         stop = viewModel::stop
@@ -121,6 +123,7 @@ fun HomeScreen(
 fun HomeScreen(
     modifier: Modifier,
     state: HomeScreenViewModel.State,
+    events: Flow<HomeScreenViewModel.Event>,
     beatsFlow: SharedFlow<Unit>,
     start: () -> Unit,
     stop: () -> Unit
@@ -137,9 +140,17 @@ fun HomeScreen(
 
     val snackbarState = remember { SnackbarHostState() }
 
-    LaunchedEffect(state) {
-        if (state is HomeScreenViewModel.State.NotFound)
-            snackbarState.showSnackbar("No results found!")
+    LaunchedEffect(Unit) {
+        events.collect {
+            when (it) {
+                HomeScreenViewModel.Event.ScheduledForOfflineRecognition -> snackbarState.showSnackbar(
+                    "We will find your song when you get back online!"
+                )
+
+                HomeScreenViewModel.Event.SongNotFound -> snackbarState.showSnackbar("No results found!")
+            }
+        }
+
     }
 
     Scaffold(
@@ -190,7 +201,7 @@ fun HomeScreen(
     if (state == HomeScreenViewModel.State.Identifying || state is HomeScreenViewModel.State.Found) {
         DarkStatusBarEffect()
     }
-    VibrateEffect(state)
+    VibrateEffect(state, events)
 
     BackHandler(state == HomeScreenViewModel.State.Identifying, stop)
     LockScreenOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
@@ -606,18 +617,27 @@ fun DarkStatusBarEffect() {
 
 
 @Composable
-fun VibrateEffect(state: HomeScreenViewModel.State) {
+fun VibrateEffect(state: HomeScreenViewModel.State, events: Flow<HomeScreenViewModel.Event>) {
 
     val context = LocalContext.current
+
+
+    LaunchedEffect(Unit) {
+        events.collect {
+            val shouldVibrate =
+                it is HomeScreenViewModel.Event.SongNotFound || it is HomeScreenViewModel.Event.ScheduledForOfflineRecognition
+            if (shouldVibrate) {
+                val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                val pattern = longArrayOf(0, 70, 80, 70) // delay, vibrate, pause, vibrate
+                vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1)) // -1 means no repeat
+            }
+        }
+    }
 
     LaunchedEffect(state) {
         if (state is HomeScreenViewModel.State.Found) {
             val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
             vibrator.vibrate(VibrationEffect.createOneShot(600L, VibrationEffect.DEFAULT_AMPLITUDE))
-        } else if (state is HomeScreenViewModel.State.NotFound) {
-            val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            val pattern = longArrayOf(0, 70, 80, 70) // delay, vibrate, pause, vibrate
-            vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1)) // -1 means no repeat
         }
     }
 }
