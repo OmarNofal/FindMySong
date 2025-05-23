@@ -1,0 +1,12 @@
+<resources>
+  <string name="app_name">Find My Song</string>
+  <string name="song_identified">Lied erkannt!</string>
+  <string name="find_songs">Finde Lieder in deiner Umgebung</string>
+  <string name="listening">Höre zu…</string>
+  <string name="finding_a_match">Suche nach einem Treffer…</string>
+  <string name="taking_some_time">Das dauert etwas länger…</string>
+  <string name="no_results">Keine Ergebnisse!</string>
+  <string name="offline_recognition">Wir finden dein Lied, sobald du wieder online bist!</string>
+  <string name="song_not_identified">Lied nicht erkannt!</string>
+  <string name="song_not_found_desc">Leider konnten wir das Lied nicht erkennen</string>
+</resources>

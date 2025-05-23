@@ -11,7 +11,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -81,6 +80,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -92,6 +92,7 @@ import coil3.compose.AsyncImage
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.omar.findmysong.R
 import com.omar.findmysong.model.SongInfo
 import com.omar.findmysong.ui.permission.rememberMicrophoneRationaleDialog
 import com.omar.findmysong.ui.permission.rememberPermissionHandler
@@ -139,7 +140,7 @@ fun HomeScreen(
         onShowRationale = { rationaleDialog.show() }
     )
 
-
+    val context = LocalContext.current
     val snackbarState = remember { SnackbarHostState() }
 
     val notificationsPermissionHandler =
@@ -161,10 +162,14 @@ fun HomeScreen(
             }
             when (it) {
                 HomeScreenViewModel.Event.ScheduledForOfflineRecognition -> snackbarState.showSnackbar(
-                    "We will find your song when you get back online!"
+                    context.getString(R.string.offline_recognition)
                 )
 
-                HomeScreenViewModel.Event.SongNotFound -> snackbarState.showSnackbar("No results found!")
+                HomeScreenViewModel.Event.SongNotFound -> snackbarState.showSnackbar(
+                    context.getString(
+                        R.string.no_results
+                    )
+                )
             }
         }
 
@@ -180,7 +185,7 @@ fun HomeScreen(
                 Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = 200.dp),
-                text = "Find songs around you..."
+                text = stringResource(R.string.find_songs)
             )
             RecordButton(
                 modifier = Modifier
@@ -400,9 +405,9 @@ fun RecordingScreen(
                         .padding(top = 200.dp)
                 ) { it ->
                     val text = when (it) {
-                        RecordingScreenTextState.LISTENING -> "Listening..."
-                        RecordingScreenTextState.FINDING_MATCH -> "Finding a match..."
-                        RecordingScreenTextState.TAKING_TIME -> "This is taking some time..."
+                        RecordingScreenTextState.LISTENING -> stringResource(R.string.listening)
+                        RecordingScreenTextState.FINDING_MATCH -> stringResource(R.string.finding_a_match)
+                        RecordingScreenTextState.TAKING_TIME -> stringResource(R.string.taking_some_time)
                     }
                     TitleText(
                         modifier = Modifier,

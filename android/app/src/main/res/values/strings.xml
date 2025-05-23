@@ -1,3 +1,12 @@
 <resources>
-  <string name="app_name">Find My Song</string>
+  <string name="app_name" translatable="false">Find My Song</string>
+  <string name="song_identified">Song Identified</string>
+  <string name="find_songs">Find songs around you</string>
+  <string name="listening">Listening...</string>
+  <string name="finding_a_match">Finding a match…</string>
+  <string name="taking_some_time">This is taking some time…</string>
+  <string name="no_results">No results found!</string>
+  <string name="offline_recognition">We will find your song when you get back online!</string>
+  <string name="song_not_identified">Song not identified!</string>
+  <string name="song_not_found_desc">Unfortunately, we couldn\'t identify the song you recorded</string>
 </resources>
