@@ -1,19 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt 
 
+import pyfftw
+import numpy as np
+
 def _generate_spectrogram(windows: list[np.ndarray]):
-
-    # num_windows = len(windows)
-    # window_size = len(windows[0])
-    # spectrogram = np.zeros((window_size // 2 + 1, num_windows))
-
-
-    # for idx, w in enumerate(windows):
-    #     spectrum = np.abs(np.fft.rfft(w))
-    #     spectrogram[:, idx] = spectrum
-
-    spectrogram = np.abs(np.fft.rfft(windows, axis=1))**2
-
+    
+    # Convert list to numpy array if not already
+    windows_np = np.asarray(windows)
+    
+    fft_result = pyfftw.interfaces.numpy_fft.rfft(windows_np, axis=1)
+    
+    spectrogram = np.abs(fft_result) ** 2
+    
     return spectrogram.T
 
 def _plot_and_save_spectrogram(file_name: str, spectrogram: np.ndarray, window_size, hop_size, rate):

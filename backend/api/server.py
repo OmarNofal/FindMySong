@@ -7,6 +7,7 @@ import numpy as np
 from tinytag import TinyTag
 from config.constants import DEFAULT_SAMPLE_RATE
 from api.song_id_session import SessionConfiguration, SongIdSession
+from database.config import DB_NAME, DB_PASS, DB_USER
 from database.db import AppDatabase
 from fingerprint.fingerprinting import generate_fingerprints
 from model.song import Song
@@ -17,7 +18,7 @@ from scipy.signal import resample
 
 app = fastapi.FastAPI()
 
-db = AppDatabase('songs', 'postgres', 'admin')
+db = AppDatabase(DB_NAME, DB_USER, DB_PASS)
 
 @app.websocket('/identify_song')
 async def identify_song(ws: WebSocket):
@@ -27,7 +28,8 @@ async def identify_song(ws: WebSocket):
     in_sample_rate = int(await ws.receive_text())
     dtype = await ws.receive_text()
 
-    print(in_sample_rate, dtype)
+    print(f"User sending data: {in_sample_rate}Hz, {dtype} data type")
+
     config = SessionConfiguration(in_sample_rate, DEFAULT_SAMPLE_RATE, dtype, 3, 1000, 300)
     session = SongIdSession(db=db, config=config)
     
@@ -49,20 +51,19 @@ async def identify_song(ws: WebSocket):
             results = sorted(session.results.items(), key=lambda x: x[1], reverse=True)
             top_song_id = results[0][0]
             top_song = db.get_song(top_song_id)
+            print(f"Found song: {top_song.title} by {top_song.artist_name}")
             
             res = prepare_sucess_result(top_song)
             try:
-                pprint.pprint(res)
                 await ws.send_json(res)
-                await ws.close()
+                break
             except RuntimeError as e:
                 print(e.__cause__)
 
         if time_s > 20:
-            print("Timeout")
+            print("Recognition timeout")
             res = prepare_failure_result()
             await ws.send_json(res)
-            await ws.close()
             break
 
 @app.post('/recognize_song_one_shot')

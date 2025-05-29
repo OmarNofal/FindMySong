@@ -15,7 +15,10 @@ class AppDatabase:
             port=port
         )
         self.conn.autocommit = True
-        self._create_tables()
+
+
+    def create_tables(self):
+        return self._create_tables()
 
     def _create_tables(self):
         with self.conn.cursor() as cur:
@@ -50,12 +53,7 @@ class AppDatabase:
             return cur.fetchone()[0]
 
     def insert_fingerprints(self, song_id: int, fingerprints: List[Tuple[int, int]]):
-        # with self.conn.cursor() as cur:
-        #     for chunk in batched(fingerprints, 1000):
-        #         execute_batch(cur, """
-        #             INSERT INTO fingerprints (hash, time_offset_msec, song_id)
-        #             VALUES (%s, %s, %s)
-        #         """, [(h, t, song_id) for (h, t) in chunk])
+
         with self.conn.cursor() as cur:
             buffer = io.StringIO()
             for hash_val, time_offset in fingerprints:

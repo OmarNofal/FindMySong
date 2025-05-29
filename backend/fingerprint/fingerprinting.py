@@ -7,64 +7,74 @@ from .spectrogram import _generate_spectrogram, _plot_and_save_spectrogram
 import scipy
 from fingerprint.hashing import hash_fingerprints
 
+
+
+
 def generate_fingerprints(audio: PreprocessedAudio, window_size: int = WINDOW_SIZE, hop_size: int = HOP_SIZE):
+    
     windows = _split_into_windows(audio, window_size, hop_size, apply_hanning=True)
+    
     spectrogram = _generate_spectrogram(windows)
     spectrogram = 10 * np.log10(spectrogram + 1e-10)
-    ##_plot_and_save_spectrogram('my_spec.png', spectrogram, window_size, hop_size, audio.rate)
+    
     peaks = _generate_peaks(spectrogram)
     fingerprints = _generate_peaks_pairs(peaks, window_size, hop_size, audio.rate, fanout=FANOUT)
+    
     return hash_fingerprints(fingerprints)
 
+
+_hanning_cache = dict()
 
 def _split_into_windows(audio: PreprocessedAudio, window_size: int, hop_size: int, apply_hanning: bool = True):
     
     signal = audio.signal
-    hanning_fn = np.hanning(window_size) if apply_hanning else 1
+
+    if not window_size in _hanning_cache:
+        hanning_fn = np.hanning(window_size) if apply_hanning else 1
+        _hanning_cache[window_size] = hanning_fn
+    else:
+        hanning_fn = _hanning_cache[window_size]
 
     num_windows = 1 + (len(signal) - window_size) // hop_size
     shape = (num_windows, window_size)
     strides = (hop_size * signal.strides[0], signal.strides[0])
     windows = np.lib.stride_tricks.as_strided(signal, shape=shape, strides=strides)
     
-    return windows * hanning_fn  # apply windowing in a single line
+    return windows * hanning_fn 
 
-def _generate_peaks(spectrogram: np.ndarray, neighborhood_size: int = NEIGHBORHOOD_SIZE):
+
+
+def _generate_peaks(spectrogram: np.ndarray, neighborhood_size: int = NEIGHBORHOOD_SIZE, max_peaks_per_frame: int = 5):
     
     filter_size = neighborhood_size
     sensitivity = 2
-    
-    # Step 1: Local mean filter for adaptive thresholding
+
     local_mean = scipy.ndimage.uniform_filter(spectrogram, size=filter_size)
     threshold_mask = spectrogram > (local_mean * sensitivity)
-
-    # Step 2: Find local maxima using grey dilation
     local_max = scipy.ndimage.grey_dilation(spectrogram, filter_size) == spectrogram
+    peaks_mask = threshold_mask & local_max
 
-    # Step 3: Combine both to get strong, meaningful peaks
-    peaks = threshold_mask & local_max
+    peak_coords = np.argwhere(peaks_mask)  # shape: (N, 2), each row is [freq, time]
+    amplitudes = spectrogram[peaks_mask]
+    time_indices = peak_coords[:, 1]
+    freq_indices = peak_coords[:, 0]
 
-    # Step 4: Get peak coordinates
-    freq_idx, time_idx = np.where(peaks)
-    peak_tuples = list(zip(time_idx, freq_idx))
 
-    # Step 5: Limit peaks per frame
-    from collections import defaultdict
-    frame_peaks = defaultdict(list)
+    peaks_by_frame = {}
+    for t in np.unique(time_indices):
+        idxs = np.where(time_indices == t)[0]
+        frame_peaks = list(zip([t]*len(idxs), freq_indices[idxs], amplitudes[idxs]))
+        frame_peaks.sort(key=lambda x: x[2], reverse=True)
+        for tp in frame_peaks[:max_peaks_per_frame]:
+            peaks_by_frame.setdefault(t, []).append((tp[0], tp[1]))
 
-    for t, f in peak_tuples:
-        frame_peaks[t].append((t, f, spectrogram[f, t]))  # add amplitude
+    result = [p for plist in peaks_by_frame.values() for p in plist]
+    result.sort()
 
-    max_peaks_per_frame = 10
-    # Only keep top-N peaks by amplitude per frame
-    pruned_peaks = []
-    for peaks_in_frame in frame_peaks.values():
-        peaks_in_frame.sort(key=lambda x: x[2], reverse=True)  # sort by amplitude
-        pruned = [(t, f) for t, f, _ in peaks_in_frame[:max_peaks_per_frame]]
-        pruned_peaks.extend(pruned)
+    return result
 
-    pruned_peaks.sort()
-    return pruned_peaks
+
+
 
 def _generate_peaks_pairs(peaks, window_size, hop_size, rate, fanout = FANOUT):
     """
@@ -80,8 +90,6 @@ def _generate_peaks_pairs(peaks, window_size, hop_size, rate, fanout = FANOUT):
 
     min_frame_delta = (min_time_delta_ms * rate) / ( hop_size * 1000 )
     max_frame_delta = (max_time_delta_ms * rate) / ( hop_size * 1000 ) 
-
-    max_freq_delta = 300 # experiment with this number
 
     fingerprints = list()
 
@@ -99,8 +107,7 @@ def _generate_peaks_pairs(peaks, window_size, hop_size, rate, fanout = FANOUT):
 
             if delta_t_frame < min_frame_delta or delta_t_frame > max_frame_delta:
                 continue
-            # elif abs(b_freq - a_freq) > max_freq_delta:
-            #     continue
+
             else:
                 fingerprint = ((a_freq, b_freq, delta_t_frame), a_t_msec)
                 fingerprints.append(fingerprint)

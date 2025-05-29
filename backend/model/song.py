@@ -1,7 +1,7 @@
-import dataclasses
+from dataclasses import dataclass
 
 
-@dataclasses.dataclass
+@dataclass
 class Song:
     id: int
     title: str

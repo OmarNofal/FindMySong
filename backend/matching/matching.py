@@ -11,7 +11,7 @@ from collections import defaultdict, Counter
 
 def find_matches_of_file(db: AppDatabase, audio_file_path: str, top_n: int = 5):
     preprocessed_audio = preprocess_audio_file(audio_file_path)
-    return get_audio_matches(db, preprocess_audio_file)
+    return get_audio_matches(db, preprocessed_audio)
 
 
 def get_audio_matches(db: AppDatabase, audio: PreprocessedAudio, top_n: int = 5):

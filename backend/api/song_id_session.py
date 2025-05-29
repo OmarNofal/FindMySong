@@ -36,7 +36,7 @@ class SongIdSession:
         self.last_match_time = 0
 
     def push_bytes(self, bytes_chunk: bytearray):
-        #print(bytes_chunk)
+
         if self.is_match_found:
             return
 
@@ -85,9 +85,8 @@ class SongIdSession:
         top1, top2 = top_matches[0], top_matches[1]
         score_gap = top1[1] - top2[1]
 
-        if top1[1] > 40 or (top1[1] > 25 and score_gap > 10):
+        if top1[1] > 30 or (top1[1] > 20 and score_gap > 10):
             self.is_match_found = True
-            print(f"✅ Match found: Song ID = {top1[0]}, Score = {top1[1]}")
 
     def required_bytes(self):
         return math.ceil(self.config.chunk_time_msec / 1000) * self.config.in_sample_rate * self.sample_size
