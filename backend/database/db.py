@@ -103,6 +103,17 @@ class AppDatabase:
             """
             cur.execute(query)
             return cur.fetchone()[0]
+        
+    def get_song_id(self, title, artist, album) -> int:
+        with self.conn.cursor() as cur:
+            query = """
+                SELECT id
+                FROM songs
+                WHERE title=%s and artist_name=%s and album_name=%s LIMIT 1;
+            """
+            cur.execute(query, (title, artist, album))
+            row = cur.fetchone()
+            return row[0] if row is not None else None
 
     def close(self):
         self.conn.close()

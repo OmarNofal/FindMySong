@@ -16,4 +16,4 @@ NEIGHBORHOOD_SIZE = (25, 25)
 
 # Number of target points (anchor pairs) created per peak.
 # More fanout means more robust matching but also increases hash count and database size.
-FANOUT = 8
+FANOUT = 10

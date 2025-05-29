@@ -44,7 +44,7 @@ def _split_into_windows(audio: PreprocessedAudio, window_size: int, hop_size: in
 
 
 
-def _generate_peaks(spectrogram: np.ndarray, neighborhood_size: int = NEIGHBORHOOD_SIZE, max_peaks_per_frame: int = 5):
+def _generate_peaks(spectrogram: np.ndarray, neighborhood_size: int = NEIGHBORHOOD_SIZE, max_peaks_per_frame: int = 8):
     
     filter_size = neighborhood_size
     sensitivity = 2
