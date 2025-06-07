@@ -1,5 +1,4 @@
 <resources>
-  <string name="app_name">Find My Song</string>
   <string name="song_identified">Lied erkannt!</string>
   <string name="find_songs">Finde Lieder in deiner Umgebung</string>
   <string name="listening">Höre zu…</string>

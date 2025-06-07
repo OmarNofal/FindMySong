@@ -34,6 +34,7 @@ android {
         }
         getByName("debug") {
             applicationIdSuffix = rootProject.extra["debugApplicationIdSuffix"] as String
+            resValue("string", "app_name", "Find My Song (Debug)")
         }
     }
     compileOptions {
@@ -73,9 +74,11 @@ dependencies {
     implementation(libs.compose.navigation)
     implementation(libs.hilt.navigation.compose)
     implementation(libs.gson)
+    implementation(libs.androidx.splashscreen)
     implementation(libs.timber)
     implementation(libs.work)
-    implementation(files("C:\\Users\\omarw\\Downloads\\JTransforms-3.1-with-dependencies.jar"))
+    implementation(files("libs/jtransforms-3.1.jar"))
+
 
     ksp(libs.hilt.compiler)
     testImplementation(libs.junit)

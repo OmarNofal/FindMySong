@@ -15,10 +15,12 @@ import timber.log.Timber
 import java.nio.ByteBuffer
 
 
-const val URL = "ws://192.168.1.77:8000/identify_song"
+
 val client = OkHttpClient()
 
-class FindMySongService(bufferSize: Int) : WebSocketListener() {
+class FindMySongService(
+    bufferSize: Int
+) : WebSocketListener() {
 
     private val request = Request.Builder().url(URL).build()
     private var ws: WebSocket? = null
@@ -47,6 +49,7 @@ class FindMySongService(bufferSize: Int) : WebSocketListener() {
     }
 
     fun stop() {
+        buffer.clear()
         ws?.close(1000, null)
         ws = null
     }
@@ -70,6 +73,8 @@ class FindMySongService(bufferSize: Int) : WebSocketListener() {
     override fun onOpen(webSocket: WebSocket, response: Response) {
 
         Timber.tag("WS").d("Connected")
+
+        // Tell the server the type of audio data we are sending
         webSocket.send("44100")
         webSocket.send("float32")
 
@@ -98,6 +103,10 @@ class FindMySongService(bufferSize: Int) : WebSocketListener() {
         fun onRecognitionTimeout()
         fun onSongFound(song: SongInfo)
         fun onSongNotFound()
+    }
+
+    companion object {
+        fun buildWsConnectionString(ip: String, port: Int) = "ws://$ip:$port/identify_song"
     }
 
 }

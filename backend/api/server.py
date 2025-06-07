@@ -5,6 +5,7 @@ from fastapi import File, HTTPException, Response, UploadFile, WebSocket
 from fastapi.responses import JSONResponse
 import numpy as np
 from tinytag import TinyTag
+from api.constants import PORT
 from config.constants import DEFAULT_SAMPLE_RATE
 from api.song_id_session import SessionConfiguration, SongIdSession
 from database.config import DB_NAME, DB_PASS, DB_USER
@@ -72,7 +73,7 @@ async def recognize_song_one_shot(
     sample_rate: int,
     dtype: str
 ):
-    
+    print("Connected")
     contents = await file.read()
     
     signal = np.frombuffer(contents, dtype=dtype)

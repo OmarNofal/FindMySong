@@ -1,13 +1,12 @@
 package com.omar.findmysong.service
 
-import com.omar.findmysong.network.identification.FindMySongService
 import androidx.work.WorkManager
-import com.omar.findmysong.OfflineService
+import com.omar.findmysong.OfflineRecognitionScheduler
 import com.omar.findmysong.config.DEFAULT_SAMPLE_RATE
 import com.omar.findmysong.config.DEFAULT_SAMPLE_SIZE
 import com.omar.findmysong.model.SongInfo
+import com.omar.findmysong.network.identification.FindMySongService
 import com.omar.findmysong.visualizer.BassBeatDetector
-import com.omar.findmysong.visualizer.BeatDetector
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -25,8 +24,8 @@ class MusicRecognitionManager(
     val recordingService: AudioRecordService = AudioRecordService(100),
     val beatDetector: BassBeatDetector = BassBeatDetector(DEFAULT_SAMPLE_RATE, 100),
     val networkService: FindMySongService = FindMySongService(DEFAULT_SAMPLE_RATE * DEFAULT_SAMPLE_SIZE),
-    val offlineService: OfflineService = OfflineService(cacheDir, workManager)
-): FindMySongService.Listener {
+    val offlineRecognitionScheduler: OfflineRecognitionScheduler = OfflineRecognitionScheduler(cacheDir, workManager)
+) : FindMySongService.Listener {
 
     private val _events = MutableSharedFlow<Event>()
     val events = _events.asSharedFlow()
@@ -60,11 +59,11 @@ class MusicRecognitionManager(
             networkService.sendChunk(chunk)
 
         handleBeatDetection(chunk)
-        offlineService.appendBuffer(chunk)
+        offlineRecognitionScheduler.appendBuffer(chunk)
     }
 
     private fun handleBeatDetection(chunk: ByteArray) {
-        val samples = BeatDetector.byteToFloatArray(chunk)
+        val samples = BassBeatDetector.byteToFloatArray(chunk)
         val isBeat = beatDetector.processFrame(samples, System.currentTimeMillis())
         if (isBeat) {
             emitEvent(Event.BeatDetected)
@@ -85,14 +84,14 @@ class MusicRecognitionManager(
     }
 
     private fun scheduleForOfflineRecognition() {
-        offlineService.schedule()
+        offlineRecognitionScheduler.schedule()
         reset()
         emitEvent(Event.ScheduledForOfflineRecognition)
     }
 
     private fun reset() {
         isRecording = false
-        offlineService.cancel()
+        offlineRecognitionScheduler.cancel()
         networkService.stop()
         recordingService.stopRecording()
 

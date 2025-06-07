@@ -1,5 +1,6 @@
 <resources>
   <string name="app_name" translatable="false">Find My Song</string>
+  <string name="app_name_debug" translatable="false">Find My Song Debug</string>
   <string name="song_identified">Song Identified</string>
   <string name="find_songs">Find songs around you</string>
   <string name="listening">Listening...</string>

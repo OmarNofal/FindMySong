@@ -1,8 +1,8 @@
 package com.omar.findmysong
 
 import android.app.Application
-import timber.log.Timber
 import dagger.hilt.android.HiltAndroidApp
+import timber.log.Timber
 
 
 @HiltAndroidApp

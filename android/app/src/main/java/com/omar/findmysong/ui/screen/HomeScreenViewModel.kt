@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.WorkManager
 import com.omar.findmysong.di.TempDirectory
 import com.omar.findmysong.model.SongInfo
+import com.omar.findmysong.network.discovery.ServerDiscovery
 import com.omar.findmysong.service.MusicRecognitionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -21,13 +22,15 @@ import javax.inject.Inject
 class HomeScreenViewModel @Inject constructor(
     @TempDirectory val cacheDir: File,
     workManager: WorkManager,
+    serverDiscovery: ServerDiscovery
 ) : ViewModel() {
 
 
     val recognitionManager = MusicRecognitionManager(
         cacheDir, workManager, CoroutineScope(
             Dispatchers.Default
-        )
+        ),
+        serverDiscovery = serverDiscovery
     )
 
     val state = MutableStateFlow<State>(State.Idle)

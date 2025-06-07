@@ -5,7 +5,6 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
-import androidx.work.WorkRequest
 import com.omar.findmysong.worker.OfflineRecognizerWorker
 import timber.log.Timber
 import java.io.ByteArrayOutputStream
@@ -13,7 +12,7 @@ import java.io.File
 import java.io.FileOutputStream
 
 
-class OfflineService(private val dir: File, private val workManager: WorkManager) {
+class OfflineRecognitionScheduler(private val dir: File, private val workManager: WorkManager) {
 
     private val buffer = ByteArrayOutputStream()
 

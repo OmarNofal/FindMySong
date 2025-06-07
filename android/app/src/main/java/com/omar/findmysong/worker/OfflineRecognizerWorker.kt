@@ -27,8 +27,7 @@ import java.io.File
 
 
 class OfflineRecognizerWorker(
-    val appContext: Context,
-    params: WorkerParameters
+    val appContext: Context, params: WorkerParameters
 ) : CoroutineWorker(appContext, params) {
 
 
@@ -42,8 +41,7 @@ class OfflineRecognizerWorker(
         Timber.tag("Worker").d("Worker started")
         val recordingFile = File(appContext.externalCacheDir!!, "temp")
 
-        if (!recordingFile.exists())
-            return Result.success()
+        if (!recordingFile.exists()) return Result.success()
 
 
         val api = retrofit.create(Api::class.java)
@@ -52,8 +50,11 @@ class OfflineRecognizerWorker(
         val body = MultipartBody.Part.createFormData("file", recordingFile.name, requestFile)
 
 
-        val result = api.matchSongOneShot(body, 44100, "float32")
-
+        val result = withContext(
+            Dispatchers.IO
+        ) {
+            api.matchSongOneShot(body, 44100, "float32")
+        }
         if (result is SongFoundResponse) {
 
             val songId = result.id

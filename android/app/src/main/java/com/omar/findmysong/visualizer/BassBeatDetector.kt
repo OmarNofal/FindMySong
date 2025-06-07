@@ -1,7 +1,8 @@
 package com.omar.findmysong.visualizer
 
 import org.jtransforms.fft.FloatFFT_1D
-import timber.log.Timber
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import kotlin.math.ceil
 import kotlin.math.floor
 
@@ -14,11 +15,8 @@ class BassBeatDetector(
     val cooldownTime: Long
 ) {
 
-
     private var lastBeatTime = 0L
-    private val magnitudeHistory = ArrayDeque<Float>()
     private val magnitudeThreshold = 1.1f
-    private val historySizeChunks = 40
     private val bassMinFreq = 20
     private val bassMaxFreq = 300
     private val smoothing = 0.6f
@@ -49,19 +47,26 @@ class BassBeatDetector(
 
         runningAverage = (1 - smoothing) * runningAverage + smoothing * totalBassMagnitude
 
-//        magnitudeHistory.add(totalBassMagnitude)
-//        if (magnitudeHistory.size > historySizeChunks)
-//            magnitudeHistory.removeFirst()
-
         val canBeat = (time - lastBeatTime) > cooldownTime
         if (totalBassMagnitude > runningAverage * magnitudeThreshold && canBeat) {
             lastBeatTime = time
-            Timber.tag("Beat").d("Found Bass Beat")
             return true
         }
 
         return false
     }
 
+    companion object {
 
+        fun byteToFloatArray(byteArray: ByteArray): FloatArray {
+            val floatCount = byteArray.size / 4
+            val floatArray = FloatArray(floatCount)
+            val byteBuffer = ByteBuffer.wrap(byteArray)
+                .order(ByteOrder.LITTLE_ENDIAN)
+            for (i in 0 until floatCount) {
+                floatArray[i] = byteBuffer.float
+            }
+            return floatArray
+        }
+    }
 }
