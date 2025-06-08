@@ -52,11 +52,3 @@ def get_audio_matches(db: AppDatabase, audio: PreprocessedAudio, top_n: int = 5)
     sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
 
     return sorted_scores[:top_n]
-
-
-
-if __name__ == '__main__':
-
-    db = AppDatabase('songs', 'postgres', 'admin')
-    sample_path = "C:\\Users\\omarw\\Documents\\Programming\\audio-id\\backend\\audio_files\\recording_05.mp3"
-    find_matches_of_file(db, sample_path)

@@ -6,7 +6,8 @@ import com.omar.findmysong.config.DEFAULT_SAMPLE_RATE
 import com.omar.findmysong.config.DEFAULT_SAMPLE_SIZE
 import com.omar.findmysong.model.SongInfo
 import com.omar.findmysong.network.identification.FindMySongService
-import com.omar.findmysong.visualizer.BassBeatDetector
+import com.omar.findmysong.visualizer.BeatWithData
+import com.omar.findmysong.visualizer.BeatDetector
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -22,9 +23,12 @@ class MusicRecognitionManager(
     workManager: WorkManager,
     val coroutineScope: CoroutineScope,
     val recordingService: AudioRecordService = AudioRecordService(100),
-    val beatDetector: BassBeatDetector = BassBeatDetector(DEFAULT_SAMPLE_RATE, 100),
+    val beatDetector: BeatDetector = BeatDetector(DEFAULT_SAMPLE_RATE, 100),
     val networkService: FindMySongService = FindMySongService(DEFAULT_SAMPLE_RATE * DEFAULT_SAMPLE_SIZE),
-    val offlineRecognitionScheduler: OfflineRecognitionScheduler = OfflineRecognitionScheduler(cacheDir, workManager)
+    val offlineRecognitionScheduler: OfflineRecognitionScheduler = OfflineRecognitionScheduler(
+        cacheDir,
+        workManager
+    )
 ) : FindMySongService.Listener {
 
     private val _events = MutableSharedFlow<Event>()
@@ -63,10 +67,10 @@ class MusicRecognitionManager(
     }
 
     private fun handleBeatDetection(chunk: ByteArray) {
-        val samples = BassBeatDetector.byteToFloatArray(chunk)
-        val isBeat = beatDetector.processFrame(samples, System.currentTimeMillis())
-        if (isBeat) {
-            emitEvent(Event.BeatDetected)
+        val samples = BeatDetector.byteToFloatArray(chunk)
+        val beat = beatDetector.processFrame(samples, System.currentTimeMillis())
+        if (beat.isSnare || beat.isBass || beat.isKick) {
+            emitEvent(Event.BeatDetected(beat))
         }
     }
 
@@ -127,9 +131,9 @@ class MusicRecognitionManager(
     sealed class Event {
         object RecognitionStarted : Event()
         object RecognitionCanceled : Event()
-        object BeatDetected : Event()
         object SongNotFound : Event()
         object ScheduledForOfflineRecognition : Event()
+        data class BeatDetected(val beat: BeatWithData) : Event()
         data class SongFound(val song: SongInfo) : Event()
     }
 

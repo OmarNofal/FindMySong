@@ -5,59 +5,104 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.ceil
 import kotlin.math.floor
+import kotlin.math.roundToInt
 
 
 /**
- * This class detects bass and drum beats
+ * Detects beats in a specific frequency band
  */
-class BassBeatDetector(
-    val sampleRate: Int,
-    val cooldownTime: Long
+class FrequencyBandBeatDetector(
+    private val sampleRate: Int,
+    private val minFreq: Int,
+    private val maxFreq: Int,
+    private val cooldownTime: Long,
+    private val magnitudeThreshold: Float = 1.2f,
+    private val smoothing: Float = 0.4f
 ) {
-
     private var lastBeatTime = 0L
-    private val magnitudeThreshold = 1.1f
-    private val bassMinFreq = 20
-    private val bassMaxFreq = 300
-    private val smoothing = 0.6f
-    private var runningAverage = 0f
+    private var runningAverage = 10f
 
-    fun processFrame(chunk: FloatArray, time: Long): Boolean {
+    fun processFrame(fftData: FloatArray, time: Long): Boolean {
+        val numSamples = fftData.size
+        val binWidth = sampleRate / (numSamples.toFloat())
 
-        val numSamples = chunk.size
-        val fft = FloatFFT_1D(numSamples.toLong())
-        fft.realForward(chunk)
+        val minBin = ceil(minFreq / binWidth).toInt()
+        val maxBin = floor(maxFreq / binWidth).toInt()
 
-        val binWidth = sampleRate / chunk.size.toFloat()
-
-        val minBin = ceil(bassMinFreq / binWidth).toInt()
-        val maxBin = floor(bassMaxFreq / binWidth).toInt()
-
-        val fftOut = chunk
-
-        var totalBassMagnitude = 0f
+        var totalMagnitude = 0f
         for (k in minBin..maxBin) {
-
-            val real = fftOut[2 * k]
-            val imag = fftOut[2 * k + 1]
-
+            val real = fftData[2 * k]
+            val imag = fftData[2 * k + 1]
             val binMagnitude = real * real + imag * imag
-            totalBassMagnitude += binMagnitude
+            totalMagnitude += binMagnitude
         }
 
-        runningAverage = (1 - smoothing) * runningAverage + smoothing * totalBassMagnitude
+        runningAverage = (1 - smoothing) * runningAverage + smoothing * totalMagnitude
 
         val canBeat = (time - lastBeatTime) > cooldownTime
-        if (totalBassMagnitude > runningAverage * magnitudeThreshold && canBeat) {
+        return if (totalMagnitude > runningAverage * magnitudeThreshold && canBeat) {
             lastBeatTime = time
-            return true
+            true
+        } else {
+            false
         }
+    }
+}
 
-        return false
+class BeatDetector(
+    private val sampleRate: Int,
+    private val cooldownTime: Long
+) {
+
+    private val bassBeatDetector = FrequencyBandBeatDetector(
+        sampleRate,
+        20,
+        300,
+        cooldownTime,
+        magnitudeThreshold = 1.2f,
+        smoothing = 0.3f
+    )
+    private val snareBeatDetector = FrequencyBandBeatDetector(
+        sampleRate,
+        500,
+        2500,
+        cooldownTime * 2,
+        magnitudeThreshold = 2.0f,
+        smoothing = 0.7f
+    )
+    private val kickBeatDetector = FrequencyBandBeatDetector(
+        sampleRate,
+        50,
+        150,
+        cooldownTime,
+        magnitudeThreshold = 1.5f,
+        smoothing = 0.5f
+    )
+    private val tempoTracker = TempoTracker()
+
+    fun processFrame(chunk: FloatArray, time: Long): BeatWithData {
+        val numSamples = chunk.size.toLong()
+
+        val fftInput = chunk.copyOf()
+
+        val fft = FloatFFT_1D(numSamples)
+        fft.realForward(fftInput)
+
+        val bass = bassBeatDetector.processFrame(fftInput, time)
+        val snare = snareBeatDetector.processFrame(fftInput, time)
+        val kick = kickBeatDetector.processFrame(fftInput, time)
+
+        if (bass or kick) tempoTracker.addBeat(time)
+
+        return BeatWithData(
+            isSnare = snare,
+            isBass = bass,
+            isKick = kick,
+            tempo = tempoTracker.getTempoBPM().roundToInt()
+        )
     }
 
     companion object {
-
         fun byteToFloatArray(byteArray: ByteArray): FloatArray {
             val floatCount = byteArray.size / 4
             val floatArray = FloatArray(floatCount)
@@ -68,5 +113,31 @@ class BassBeatDetector(
             }
             return floatArray
         }
+    }
+}
+
+data class BeatWithData(
+    val isSnare: Boolean = false,
+    val isBass: Boolean = false,
+    val isKick: Boolean = false,
+    val tempo: Int = 0
+)
+
+class TempoTracker {
+    private val beatTimestamps = mutableListOf<Long>()
+    private val maxHistory = 20
+
+    fun addBeat(time: Long) {
+        beatTimestamps.add(time)
+        if (beatTimestamps.size > maxHistory) {
+            beatTimestamps.removeAt(0)
+        }
+    }
+
+    fun getTempoBPM(): Float {
+        if (beatTimestamps.size < 2) return 120f
+        val intervals = beatTimestamps.zipWithNext { a, b -> b - a }
+        val avgInterval = intervals.average()
+        return if (avgInterval > 0) 60000f / avgInterval.toFloat() else 0f
     }
 }

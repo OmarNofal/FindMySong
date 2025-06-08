@@ -5,8 +5,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.WorkManager
 import com.omar.findmysong.di.TempDirectory
 import com.omar.findmysong.model.SongInfo
-import com.omar.findmysong.network.discovery.ServerDiscovery
 import com.omar.findmysong.service.MusicRecognitionManager
+import com.omar.findmysong.visualizer.BeatWithData
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,21 +21,19 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeScreenViewModel @Inject constructor(
     @TempDirectory val cacheDir: File,
-    workManager: WorkManager,
-    serverDiscovery: ServerDiscovery
+    workManager: WorkManager
 ) : ViewModel() {
 
 
     val recognitionManager = MusicRecognitionManager(
         cacheDir, workManager, CoroutineScope(
             Dispatchers.Default
-        ),
-        serverDiscovery = serverDiscovery
+        )
     )
 
     val state = MutableStateFlow<State>(State.Idle)
 
-    private val _beatsFlow = MutableSharedFlow<Unit>()
+    private val _beatsFlow = MutableSharedFlow<BeatWithData>()
     val beatsFlow = _beatsFlow.asSharedFlow()
 
     private val _events = MutableSharedFlow<Event>()
@@ -53,7 +51,7 @@ class HomeScreenViewModel @Inject constructor(
         when (event) {
             is MusicRecognitionManager.Event.RecognitionStarted -> onRecognitionStarted()
             is MusicRecognitionManager.Event.RecognitionCanceled -> onRecognitionCanceled()
-            is MusicRecognitionManager.Event.BeatDetected -> onBeatDetected()
+            is MusicRecognitionManager.Event.BeatDetected -> onBeatDetected(event.beat)
             is MusicRecognitionManager.Event.ScheduledForOfflineRecognition -> onScheduledForOfflineRecognition()
             is MusicRecognitionManager.Event.SongFound -> onSongFound(event.song)
             is MusicRecognitionManager.Event.SongNotFound -> onSongNotFound()
@@ -85,8 +83,8 @@ class HomeScreenViewModel @Inject constructor(
         emitEvent(Event.ScheduledForOfflineRecognition)
     }
 
-    private fun onBeatDetected() {
-        viewModelScope.launch { _beatsFlow.emit(Unit) }
+    private fun onBeatDetected(beat: BeatWithData) {
+        viewModelScope.launch { _beatsFlow.emit(beat) }
     }
 
     private fun onRecognitionCanceled() {

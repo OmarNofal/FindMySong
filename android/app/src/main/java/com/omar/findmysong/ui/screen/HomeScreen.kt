@@ -1,16 +1,11 @@
 package com.omar.findmysong.ui.screen
 
 import android.Manifest
-import android.app.Activity
-import android.content.Context
 import android.content.pm.ActivityInfo
 import android.os.Build
-import android.os.VibrationEffect
-import android.os.Vibrator
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.LocalActivity
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -24,79 +19,53 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.rounded.Radar
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
-import coil3.compose.AsyncImage
-import coil3.request.CachePolicy
-import coil3.request.ImageRequest
-import coil3.request.crossfade
 import com.omar.findmysong.R
-import com.omar.findmysong.model.SongInfo
+import com.omar.findmysong.ui.effects.DarkStatusBarEffect
+import com.omar.findmysong.ui.effects.LockScreenOrientation
+import com.omar.findmysong.ui.effects.VibrateEffect
 import com.omar.findmysong.ui.permission.rememberMicrophoneRationaleDialog
 import com.omar.findmysong.ui.permission.rememberPermissionHandler
 import com.omar.findmysong.ui.theme.ManropeFontFamily
+import com.omar.findmysong.ui.visualizer.RipplesVisualizer
+import com.omar.findmysong.visualizer.BeatWithData
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
@@ -104,7 +73,6 @@ import kotlinx.coroutines.flow.SharedFlow
 
 @Composable
 fun HomeScreen(
-    modifier: Modifier,
     viewModel: HomeScreenViewModel = hiltViewModel()
 ) {
 
@@ -113,7 +81,6 @@ fun HomeScreen(
     val events = viewModel.events
 
     HomeScreen(
-        modifier,
         state,
         events,
         beatsFlow,
@@ -124,10 +91,9 @@ fun HomeScreen(
 
 @Composable
 fun HomeScreen(
-    modifier: Modifier,
     state: HomeScreenViewModel.State,
     events: Flow<HomeScreenViewModel.Event>,
-    beatsFlow: SharedFlow<Unit>,
+    beatsFlow: SharedFlow<BeatWithData>,
     start: () -> Unit,
     stop: () -> Unit
 ) {
@@ -232,7 +198,7 @@ fun HomeScreen(
 @Composable
 fun RecordButton(
     modifier: Modifier,
-    beatsFlow: SharedFlow<Unit>,
+    beatsFlow: SharedFlow<BeatWithData>,
     isRecording: Boolean,
     hide: Boolean,
     onClick: () -> Unit,
@@ -263,7 +229,7 @@ fun RecordButton(
 
     var pressScaleDown by remember { mutableFloatStateOf(0.0f) }
 
-    // Beat animation scale state
+    // BeatWithData animation scale state
     var beatScale by remember { mutableFloatStateOf(1.0f) }
 
     // Animate beat bounce
@@ -283,9 +249,6 @@ fun RecordButton(
             beatScale = 1.0f
         }
     }
-
-
-
 
     Box(
         modifier = modifier
@@ -307,8 +270,14 @@ fun RecordButton(
                 .aspectRatio(1.0f)
                 .background(Color(0xFFE70000), CircleShape)
         )
-        if (!hide)
+        AnimatedVisibility(
+            modifier = Modifier.matchParentSize(),
+            visible = isRecording,
+            enter = EnterTransition.None,
+            exit = fadeOut(tween(200))
+        ) {
             RipplesVisualizer(Modifier.matchParentSize(), beatsFlow)
+        }
         AnimatedVisibility(!hide, exit = fadeOut(), enter = fadeIn()) {
             Icon(
                 modifier = Modifier
@@ -357,322 +326,9 @@ fun TitleText(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun RecordingScreen(
-    modifier: Modifier,
-    onCancel: () -> Unit
-) {
-
-    var textState by remember { mutableStateOf(RecordingScreenTextState.LISTENING) }
-
-    LaunchedEffect(Unit) {
-        delay(6000)
-        textState = RecordingScreenTextState.FINDING_MATCH
-        delay(7000)
-        textState = RecordingScreenTextState.TAKING_TIME
-    }
-
-    Scaffold(
-        modifier,
-        topBar = {
-            TopAppBar(
-                title = {},
-                navigationIcon = {
-                    IconButton(onCancel) {
-                        Icon(imageVector = Icons.Filled.Close, contentDescription = null)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    navigationIconContentColor = Color.White
-                )
-            )
-
-        },
-        containerColor = Color.Transparent,
-    ) { it ->
-        it
-        Box(modifier = Modifier.fillMaxSize()) {
-            CompositionLocalProvider(
-                LocalContentColor provides Color.White
-            ) {
-
-                AnimatedContent(
-                    targetState = textState, modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.TopCenter)
-                        .padding(top = 200.dp)
-                ) { it ->
-                    val text = when (it) {
-                        RecordingScreenTextState.LISTENING -> stringResource(R.string.listening)
-                        RecordingScreenTextState.FINDING_MATCH -> stringResource(R.string.finding_a_match)
-                        RecordingScreenTextState.TAKING_TIME -> stringResource(R.string.taking_some_time)
-                    }
-                    TitleText(
-                        modifier = Modifier,
-                        text = text,
-                    )
-                }
-            }
-        }
-    }
-}
-
-enum class RecordingScreenTextState {
-    LISTENING, FINDING_MATCH, TAKING_TIME
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun MatchFoundScreen(
-    modifier: Modifier,
-    songInfo: SongInfo,
-    onNavigateBack: () -> Unit
-) {
-
-    BackHandler(true, onNavigateBack)
-
-    var hasPlayedAnimation by rememberSaveable { mutableStateOf(false) }
-    var visible by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        if (!hasPlayedAnimation) {
-            visible = true
-            delay(3000)
-            hasPlayedAnimation = true
-        }
-    }
-
-    Scaffold(
-        modifier = modifier,
-        containerColor = Color.Transparent,
-        contentColor = Color.White,
-        topBar = {
-            TopAppBar(
-                title = {},
-                navigationIcon = {
-                    IconButton(onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = null
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    navigationIconContentColor = Color.White
-                )
-            )
-
-        }) { it ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-
-            var showImage by remember { mutableStateOf(false) }
-
-            LaunchedEffect(Unit) {
-                delay(2000)
-                showImage = true
-            }
-
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                AsyncImage(
-                    modifier = Modifier
-                        .fillMaxSize(),
-                    model = if (showImage) ImageRequest.Builder(LocalContext.current)
-                        .data("http://192.168.1.77:8000/get_albumart?song_id=${songInfo.id}")
-                        .crossfade(1000)
-                        .memoryCachePolicy(CachePolicy.DISABLED)
-                        .build() else null,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop
-                )
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Black.copy(0.2f),
-                                    Color.Black.copy(0.8f),
-                                    Color.Black.copy(0.9f),
-                                    Color.Black.copy(1.0f)
-                                )
-                            )
-                        )
-                )
-            }
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(it)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.Center
-            ) {
 
 
-                Spacer(Modifier.height(16.dp))
-                AnimatedVisibility(visible, enter = fadeIn(tween(durationMillis = 400))) {
-                    Text(
-                        songInfo.title, style = MaterialTheme.typography.headlineLarge,
-                        textAlign = TextAlign.Center,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = ManropeFontFamily,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                AnimatedVisibility(
-                    visible,
-                    enter = fadeIn(tween(durationMillis = 600, delayMillis = 600))
-                ) {
-                    Text(
-                        songInfo.artist,
-                        style = MaterialTheme.typography.titleMedium,
-                        textAlign = TextAlign.Center,
-                        fontWeight = FontWeight.Normal,
-                        fontFamily = ManropeFontFamily,
-                        color = Color(0xF0F0F0F0),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-    }
-}
 
 
-data class Ripple(var alpha: Float, var scale: Float)
-
-@Composable
-fun RipplesVisualizer(
-    modifier: Modifier = Modifier,
-    beats: Flow<Unit>
-) {
-    val ripples = remember { mutableStateListOf<Ripple>() }
-    var lastFrameTime by remember { mutableLongStateOf(System.currentTimeMillis()) }
-
-    // Dummy state to trigger recomposition
-    var frameTick by remember { mutableIntStateOf(0) }
-
-    val alphaDeltaPerSecond = -0.4f
-    val scaleDeltaPerSecond = 3.4f
-
-    // Listen to beat events
-    LaunchedEffect(Unit) {
-        beats.collect {
-            ripples.add(Ripple(alpha = 0.8f, scale = 1.0f))
-        }
-    }
-
-    // Animate ripples every frame
-    LaunchedEffect(Unit) {
-        while (true) {
-            withFrameNanos { frameTimeNanos ->
-                val currentTime = frameTimeNanos / 1_000_000
-                val diffSeconds = (currentTime - lastFrameTime) / 1000f
-                lastFrameTime = currentTime
-
-                val iterator = ripples.iterator()
-                while (iterator.hasNext()) {
-                    val ripple = iterator.next()
-                    ripple.alpha += alphaDeltaPerSecond * diffSeconds
-                    ripple.scale += scaleDeltaPerSecond * diffSeconds
-                    if (ripple.alpha <= 0f) iterator.remove()
-                }
-
-                // Trigger recomposition by incrementing the state
-                frameTick++
-            }
-        }
-    }
-
-    Box(modifier, contentAlignment = Alignment.Center) {
-        Canvas(Modifier.fillMaxSize()) {
-            for (ripple in ripples) {
-                withTransform({
-                    frameTick
-                    val scalePx = with(this@Canvas) {
-                        ripple.scale.dp.toPx()
-                    }
-                    scale(scalePx)
-                }) {
-                    drawCircle(
-                        color = Color(1.0f, 0.63f, 0.63f, alpha = ripple.alpha),
-                        radius = 40f
-                    )
-                }
-            }
-        }
-    }
-}
 
 
-@Composable
-fun DarkStatusBarEffect() {
-    val view = LocalView.current
-    DisposableEffect(Unit) {
-
-        val window = (view.context as Activity).window
-
-
-        val windowsInsetsController = WindowCompat.getInsetsController(window, view)
-        val previous = windowsInsetsController.isAppearanceLightStatusBars
-
-
-        windowsInsetsController.isAppearanceLightStatusBars = false
-        windowsInsetsController.isAppearanceLightNavigationBars = false
-
-        onDispose {
-            windowsInsetsController.isAppearanceLightStatusBars = previous
-            windowsInsetsController.isAppearanceLightNavigationBars = previous
-        }
-    }
-}
-
-
-@Composable
-fun VibrateEffect(state: HomeScreenViewModel.State, events: Flow<HomeScreenViewModel.Event>) {
-
-    val context = LocalContext.current
-
-
-    LaunchedEffect(Unit) {
-        events.collect {
-            val shouldVibrate =
-                it is HomeScreenViewModel.Event.SongNotFound || it is HomeScreenViewModel.Event.ScheduledForOfflineRecognition
-            if (shouldVibrate) {
-                val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-                val pattern = longArrayOf(0, 70, 80, 70) // delay, vibrate, pause, vibrate
-                vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1)) // -1 means no repeat
-            }
-        }
-    }
-
-    LaunchedEffect(state) {
-        if (state is HomeScreenViewModel.State.Found) {
-            val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            vibrator.vibrate(VibrationEffect.createOneShot(600L, VibrationEffect.DEFAULT_AMPLITUDE))
-        }
-    }
-}
-
-@Composable
-fun LockScreenOrientation(orientation: Int) {
-    val activity = LocalActivity.current ?: return
-    DisposableEffect(Unit) {
-        val originalOrientation = activity.requestedOrientation
-        activity.requestedOrientation = orientation
-        onDispose {
-            activity.requestedOrientation = originalOrientation
-        }
-    }
-}

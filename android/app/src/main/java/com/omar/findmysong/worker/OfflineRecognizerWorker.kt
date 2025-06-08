@@ -11,6 +11,7 @@ import coil3.request.SuccessResult
 import coil3.toBitmap
 import com.omar.findmysong.AppNotificationManager
 import com.omar.findmysong.model.SongInfo
+import com.omar.findmysong.network.URL
 import com.omar.findmysong.network.gson
 import com.omar.findmysong.network.identification.Api
 import com.omar.findmysong.network.model.ErrorResponse
@@ -32,7 +33,7 @@ class OfflineRecognizerWorker(
 
 
     private val retrofit =
-        Retrofit.Builder().baseUrl("http://192.168.1.77:8000").addConverterFactory(
+        Retrofit.Builder().baseUrl("http://$URL").addConverterFactory(
             GsonConverterFactory.create(gson)
         ).build()
 
@@ -83,7 +84,7 @@ class OfflineRecognizerWorker(
         val imageLoader = appContext.imageLoader
 
         val imageRequest = ImageRequest.Builder(appContext)
-            .data("http://192.168.1.77:8000/get_albumart?song_id=$songId")
+            .data("http://$URL/get_albumart?song_id=$songId")
             .build()
 
         val result: ImageResult = imageLoader.execute(imageRequest)

@@ -1,6 +1,8 @@
 package com.omar.findmysong.network.identification
 
 import com.omar.findmysong.model.SongInfo
+import com.omar.findmysong.network.URL
+import com.omar.findmysong.network.WS_URL
 import com.omar.findmysong.network.gson
 import com.omar.findmysong.network.model.ErrorResponse
 import com.omar.findmysong.network.model.SongFoundResponse
@@ -15,15 +17,13 @@ import timber.log.Timber
 import java.nio.ByteBuffer
 
 
-
-val client = OkHttpClient()
-
 class FindMySongService(
     bufferSize: Int
 ) : WebSocketListener() {
 
-    private val request = Request.Builder().url(URL).build()
+    private val request = Request.Builder().url(WS_URL).build()
     private var ws: WebSocket? = null
+    private val client = OkHttpClient()
 
     private val buffer: ByteBuffer = ByteBuffer.allocateDirect(bufferSize)
 
