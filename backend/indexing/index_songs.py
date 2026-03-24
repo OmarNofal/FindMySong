@@ -22,7 +22,7 @@ from pprint import pprint
 audio_file_extensions = ('mp3', 'm4a', 'flac', 'ogg', 'wav')
 
 def create_db_connection():
-    return AppDatabase('songs', 'postgres', 'admin')
+    return AppDatabase(DB_NAME, DB_USER, DB_PASS)
 
 def index_songs_in_directory(directory: str, config: IndexConfig):
 

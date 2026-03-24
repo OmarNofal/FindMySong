@@ -21,6 +21,8 @@ class FrequencyBandBeatDetector(
 ) {
     private var lastBeatTime = 0L
     private var runningAverage = 10f
+    private val warmupIterations = 20
+    private var iterationCount = 0
 
     fun processFrame(fftData: FloatArray, time: Long): Boolean {
         val numSamples = fftData.size
@@ -37,7 +39,13 @@ class FrequencyBandBeatDetector(
             totalMagnitude += binMagnitude
         }
 
-        runningAverage = (1 - smoothing) * runningAverage + smoothing * totalMagnitude
+        val adaptiveSmoothing = if (iterationCount < 20) 0.8f else smoothing
+        runningAverage =
+            if (iterationCount == 0) totalMagnitude
+            else (1 - adaptiveSmoothing) * runningAverage + adaptiveSmoothing * totalMagnitude
+
+        iterationCount++
+        if (iterationCount < warmupIterations) return false
 
         val canBeat = (time - lastBeatTime) > cooldownTime
         return if (totalMagnitude > runningAverage * magnitudeThreshold && canBeat) {
@@ -135,9 +143,27 @@ class TempoTracker {
     }
 
     fun getTempoBPM(): Float {
-        if (beatTimestamps.size < 2) return 120f
-        val intervals = beatTimestamps.zipWithNext { a, b -> b - a }
-        val avgInterval = intervals.average()
-        return if (avgInterval > 0) 60000f / avgInterval.toFloat() else 0f
+        if (beatTimestamps.size < 4) return 120f
+
+        val intervals = beatTimestamps
+            .zipWithNext { a, b -> (b - a).toFloat() }
+            .takeLast(8) // focus on recent beats
+
+        if (intervals.isEmpty()) return 120f
+
+        val sorted = intervals.sorted()
+        val median = sorted[sorted.size / 2]
+
+        val filtered = intervals.filter {
+            it in (median * 0.5f)..(median * 1.5f)
+        }
+
+        if (filtered.isEmpty()) return 120f
+
+        val avgInterval = filtered.average().toFloat()
+
+        if (avgInterval <= 0f) return 0f
+
+        return 60000f / avgInterval
     }
 }

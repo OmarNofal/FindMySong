@@ -80,7 +80,6 @@ class AudioRecordService(private val preferredChunkSizeMs: Int) {
         } catch (e: SecurityException) {
             Timber.e("Microphone permission denied: ${e.message}")
             state.value = State.READY
-            // Optionally, notify the caller about permission failure via another flow/state or callback
         }
     }
 

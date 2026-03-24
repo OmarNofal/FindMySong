@@ -114,22 +114,6 @@ def get_albumart(song_id: int):
 
     return Response(media_type=pic.mime_type, content=pic.data)
 
-@app.get('/get_albumart')
-def get_albumart(song_id: int):
-
-    song = db.get_song(song_id)
-    if song is None:
-        raise HTTPException(status_code=404, detail='Invalid song id')
-
-    song_path = song.file_path
-    tags = TinyTag.get(song_path, image=True)
-    pic = tags.images.front_cover
-
-    if pic is None:
-        raise HTTPException(status_code=404, detail='No album art')
-
-    return Response(media_type=pic.mime_type, content=pic.data)
-
 
 def prepare_sucess_result(song: Song):
     return {
@@ -145,3 +129,4 @@ def prepare_failure_result():
         'result': 'failure',
         'reason': 'timeout'
     }
+

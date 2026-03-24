@@ -158,7 +158,7 @@ fun HomeScreen(
                     .align(Alignment.Center)
                     .fillMaxSize(0.40f),
                 beatsFlow = beatsFlow,
-                isRecording = state == HomeScreenViewModel.State.Identifying || state is HomeScreenViewModel.State.Found,
+                state = state,
                 hide = state is HomeScreenViewModel.State.Found,
                 onClick = {
                     if (micPermissionHandler.permissionGranted)
@@ -199,7 +199,7 @@ fun HomeScreen(
 fun RecordButton(
     modifier: Modifier,
     beatsFlow: SharedFlow<BeatWithData>,
-    isRecording: Boolean,
+    state: HomeScreenViewModel.State,
     hide: Boolean,
     onClick: () -> Unit,
 ) {
@@ -223,7 +223,7 @@ fun RecordButton(
     )
 
     val circleRecordingScale by animateFloatAsState(
-        if (isRecording) 10.0f else 1.0f,
+        if (state !is HomeScreenViewModel.State.Idle) 10.0f else 1.0f,
         tween(400, easing = FastOutSlowInEasing)
     )
 
@@ -272,7 +272,7 @@ fun RecordButton(
         )
         AnimatedVisibility(
             modifier = Modifier.matchParentSize(),
-            visible = isRecording,
+            visible = state is HomeScreenViewModel.State.Identifying,
             enter = EnterTransition.None,
             exit = fadeOut(tween(200))
         ) {
